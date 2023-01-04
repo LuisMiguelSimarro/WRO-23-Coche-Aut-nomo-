@@ -1,0 +1,99 @@
+/*WRO2022-FUTURES ENGINEERS: "COCHE AUTÓNOMO"
+   CHASIS TAMIYA TL-01
+   1 MOTOR DE PROPULSIÓN. TRACCIÓN 4X4. DIFERENCIALES DELANTE Y DETRÁS.SUSPENSIONES Y AMORTIGUADORES
+   1 SERVO DE DIRECCIÓN
+   MOTOR CONTROLADO POR CHIPL293
+   SENSORES UTILIZADOS:
+   - ULTRASÓNICOS
+   - CAMARAS DE DETECCIÓN DE OBJETOS ALTA SENSIBILIDAD
+
+*/
+#include <Servo.h>
+
+Servo steeringServo;
+const int rearMotorPinEnable = 6;
+const int rearMotorPin1 = 7;
+const int rearMotorPin2 = 8;
+
+const int Speed = 255;
+int servoPosition = 90;
+const int centerPosition = 90;
+
+// EL DUAL RATE DEBE SER MAYOR SI LAS CURVAS A TOMAR SON MAS CERRADAS
+const int dualRateIzq = 50;
+const int dualRateDcha = 130;
+
+int disparoPin = 5;
+int ecoPin = 4;
+long int durationRight;
+int distanceRight = 0;
+int setPointDistance = 20;
+
+int error = 0;
+int errorAnterior = 0;
+const int Kp = 1;
+const int Kd = 2;
+
+void setup() {
+  steeringServo.attach(9);
+  steeringServo.write(centerPosition);
+  pinMode(rearMotorPinEnable, OUTPUT);
+  pinMode(rearMotorPin1, OUTPUT);
+  pinMode(rearMotorPin2, OUTPUT);
+  pinMode(disparoPin, OUTPUT);
+  pinMode(ecoPin, INPUT);
+  Serial.begin(9600);
+}
+
+void mideDistancia ()
+{
+  digitalWrite(disparoPin, LOW);
+  delayMicroseconds(5);
+  digitalWrite(disparoPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(disparoPin, LOW);
+  durationRight = pulseIn(ecoPin, HIGH);
+  distanceRight = 0.017 * durationRight;
+
+}
+
+void loop() {
+
+  analogWrite(rearMotorPinEnable, Speed);
+  digitalWrite(rearMotorPin1, HIGH);
+  digitalWrite(rearMotorPin2, LOW);
+  mideDistancia();
+
+  if (distanceRight > 1) {
+    //imprime();
+    if (distanceRight < 5) {
+      distanceRight = 5;
+    } else if (distanceRight > 35) {
+      distanceRight = 35;
+    }
+    int error = setPointDistance - distanceRight;
+    int PROP = Kp * error;
+    int DERIV = Kd * (error-errorAnterior);
+    
+    servoPosition = centerPosition + PROP + DERIV;
+    steeringServo.write(servoPosition);
+    imprime();
+    delay(15);
+    errorAnterior = error;
+  } else {
+    steeringServo.write(centerPosition);
+  }
+}
+
+void imprime() {
+  Serial.print("  La distancia a la derecha es: ");
+  Serial.println(distanceRight);
+  Serial.print("  El error es: ");
+  Serial.println(error);
+  Serial.print("  La Posición del Servo es: ");
+  Serial.println(servoPosition);
+  Serial.println("  ");
+  delay(15);
+
+
+}
