@@ -1,0 +1,97 @@
+/*WRO2022-FUTURES ENGINEERS: "COCHE AUTÓNOMO"
+   CHASIS TAMIYA TL-01
+   1 MOTOR DE PROPULSIÓN. TRACCIÓN 4X4. DIFERENCIALES DELANTE Y DETRÁS.SUSPENSIONES Y AMORTIGUADORES
+   1 SERVO DE DIRECCIÓN
+   MOTOR CONTROLADO POR CHIP L293 O L298
+   SENSORES UTILIZADOS:
+   - ULTRASÓNICOS
+   - CAMARAS DE DETECCIÓN DE OBJETOS ALTA SENSIBILIDAD
+
+*/
+#include <Servo.h>
+
+Servo steeringServo;
+const int rearMotorPinEnable = 6;
+const int rearMotorPin1 = 7;
+const int rearMotorPin2 = 8;
+
+const int Speed = 160;//ENTRE 0 Y 255: REDUCIR ESTE VALOR SI QUEREMOS QUE VAYA MÁS DESPACIO
+int servoPosition = 90;
+const int centerPosition = 90;
+const int FILTRO 1 = 1;//FILTRO PARA LA DISTANCIA MEDIDA
+const int FILTRO2MIN = 5;//FILTRO PARA LA DISTANCIA MEDIDA, RANGO INFERIOR
+const int FILTRO2MAX = 35;//FILTRO PARA LA DISTANCIA MEDIDA, RANGO SUPERIOR
+const int FILTRO3 = 15;// FILTRO PARA EL ERROR
+
+
+// EL DUAL RATE DEBE SER MAYOR SI LAS CURVAS A TOMAR SON MAS CERRADAS
+const int dualRateIzq = 0;
+const int dualRateDcha = 180;
+
+int disparoPin = 5;
+int ecoPin = 4;
+long int durationRight;
+int distanceRight = 0;//DISTANCIA MEDIDA POR LA DERECHA
+int setPointDistanceDCHA = 15;//DISTANCIA REQUERIDA PR LA DERECHA (TENEMOS EL SENSOR US EN LA DERECHA)
+
+void setup() {
+  steeringServo.attach(9);
+  steeringServo.write(centerPosition);
+  pinMode(rearMotorPinEnable, OUTPUT);
+  pinMode(rearMotorPin1, OUTPUT);
+  pinMode(rearMotorPin2, OUTPUT);
+  pinMode(disparoPin, OUTPUT);
+  pinMode(ecoPin, INPUT);
+  Serial.begin(9600);
+}
+
+void mideDistancia ()
+{
+  digitalWrite(disparoPin, LOW);
+  delayMicroseconds(5);
+  digitalWrite(disparoPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(disparoPin, LOW);
+  durationRight = pulseIn(ecoPin, HIGH);
+  distanceRight = 0.017 * durationRight;
+
+}
+
+void loop() {
+
+  analogWrite(rearMotorPinEnable, Speed);
+  digitalWrite(rearMotorPin1, HIGH);
+  digitalWrite(rearMotorPin2, LOW);
+  mideDistancia();//LA CLAVE ES FILTRAR LOS DATOS DE LOS VALORES DE DISTANCIA OBTENIDOS 
+
+  if (distanceRight > FILTRO1) {//PRIMER FILTRO
+    //imprime();
+    if (distanceRight < FILTRO2MIN) {//SEGUNDO FILTRO RANGO MINIMO
+      distanceRight = FILTRO2MIN;
+    servoPosition = map(distanceRight, FILTRO2MIN, FILTRO2MAX, dualRateIzq, dualRateDcha);
+    steeringServo.write(servoPosition);
+    imprime();
+    delay(15);
+    } else if (distanceRight > FILTRO2MAX) {//SEGUNDO FILTRO RANGO MÁXIMO
+      distanceRight = FILTRO2MAX;
+    servoPosition = map(distanceRight/3, FILTRO2MIN, FILTRO2MAX, dualRateIzq, dualRateDcha);// DIVIDIMOS LA DISTANCIA CUANDO ESTÁ LEJOS PARA EVITAR GIROS BRUSCOS
+    steeringServo.write(servoPosition);
+    imprime();
+    delay(15);
+    }
+
+  } else {
+    steeringServo.write(centerPosition);
+  }
+}
+
+void imprime() {
+  Serial.print("  La distancia a la derecha es: ");
+  Serial.println(distanceRight);
+  Serial.print("  La Posición del Servo es: ");
+  Serial.println(servoPosition);
+  Serial.println("  ");
+  //delay(500);
+
+
+}
